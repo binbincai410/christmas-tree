@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D 真实感圣诞树</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #0a0a0a;
+            font-family: Arial, sans-serif;
+        }
+
+        #container {
+            width: 100vw;
+            height: 100vh;
+        }
+
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="container"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <script>
+        // 场景初始化
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0a0a0a);
+        scene.fog = new THREE.FogExp2(0x0a0a0a, 0.015);
+
+        // 相机设置
+        const camera = new THREE.PerspectiveCamera(
+            50,
+            window.innerWidth / window.innerHeight,
+            0.1,
+            1000
+        );
+        camera.position.set(0, 4, 14);
+        camera.lookAt(0, 3, 0);
+
+        // 渲染器设置
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.0;
+        document.getElementById('container').appendChild(renderer.domElement);
+
+        // 控制器设置
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.minDistance = 10;
+        controls.maxDistance = 35;
+        controls.maxPolarAngle = Math.PI / 2.1;
+        controls.minPolarAngle = Math.PI / 5;
+        controls.target.set(0, 3, 0);
+
+        // ========== 灯光系统（温暖室内氛围） ==========
+        const ambientLight = new THREE.AmbientLight(0x1a1510, 0.4);
+        scene.add(ambientLight);
+
+        const mainLight = new THREE.DirectionalLight(0xffeedd, 0.3);
+        mainLight.position.set(5, 12, 8);
+        mainLight.castShadow = true;
+        mainLight.shadow.mapSize.width = 2048;
+        mainLight.shadow.mapSize.height = 2048;
+        mainLight.shadow.camera.near = 0.5;
+        mainLight.shadow.camera.far = 40;
+        mainLight.shadow.camera.left = -12;
+        mainLight.shadow.camera.right = 12;
+        mainLight.shadow.camera.top = 12;
+        mainLight.shadow.camera.bottom = -12;
+        mainLight.shadow.bias = -0.0003;
+        mainLight.shadow.radius = 6;
+        scene.add(mainLight);
+
+        const warmFillLight = new THREE.DirectionalLight(0xffcc88, 0.15);
+        warmFillLight.position.set(-6, 8, -4);
+        scene.add(warmFillLight);
+
+        // 地面（深色木地板）
+        const groundGeometry = new THREE.PlaneGeometry(60, 60);
+        const groundMaterial = new THREE.MeshStandardMaterial({
+            color: 0x1a1510,
+            roughness: 0.85,
+            metalness: 0.1
+        });
+        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = 0;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        // ========== 圣诞树结构：深绿色、密集、蓬松 ==========
+
+        // 随机深绿色
+        function randomDarkGreen() {
+            // 深绿色范围 - 符合参考图
+            const hue = 0.28 + Math.random() * 0.08; // 黄绿到绿
+            const saturation = 0.4 + Math.random() * 0.25;
+            const lightness = 0.12 + Math.random() * 0.1; // 较暗
+            return new THREE.Color().setHSL(hue, saturation, lightness);
+        }
+
+        const treeGroup = new THREE.Group();
+
+        // 树的基本参数
+        const bottomRadius = 2.6;
+        const treeHeight = bottomRadius * 2.0;
+
+        // ========== 创建极其密集的枝叶结构 ==========
+
+        // 第一层：主树冠骨架
+        const mainBranchCount = 100;
+
+        for (let i = 0; i < mainBranchCount; i++) {
+            const progress = i / mainBranchCount;
+
+            // 高度分布
+            const baseY = 0.5 + progress * treeHeight * 0.88;
+            const yOffset = (Math.random() - 0.5) * 0.6;
+            const y = baseY + yOffset;
+
+            // 半径（自然递减，底部宽）
+            const heightFactor = 1 - Math.pow(progress, 0.7);
+            const radiusFactor = 0.6 + Math.random() * 0.5;
+            const radius = bottomRadius * heightFactor * radiusFactor;
+
+            // 尺寸
+            const size = 0.25 + Math.random() * 0.4;
+            const height = 0.35 + Math.random() * 0.5;
+
+            // 位置
+            const angle = Math.random() * Math.PI * 2;
+            const dist = Math.random() * radius * 0.85;
+            const x = Math.cos(angle) * dist;
+            const z = Math.sin(angle) * dist;
+
+            const geometry = new THREE.ConeGeometry(size, height, 6);
+            const material = new THREE.MeshStandardMaterial({
+                color: randomDarkGreen(),
+                roughness: 0.92,
+                metalness: 0.0
+            });
+
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.position.set(x, y, z);
+            mesh.rotation.x = (Math.random() - 0.5) * 0.5;
+            mesh.rotation.z = (Math.random() - 0.5) * 0.5;
+            mesh.rotation.y = Math.random() * Math.PI * 2;
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            treeGroup.add(mesh);
+        }
+
+        // 第二层：外围蓬松枝叶（向外延伸）
+        const foliageCount = 180;
+
+        for (let i = 0; i < foliageCount; i++) {
+            const heightProgress = Math.random();
+            const y = 0.6 + heightProgress * treeHeight * 0.85;
+
+            const radiusAtHeight = bottomRadius * (1 - Math.pow(heightProgress, 0.7));
+
+            // 外围位置
+            const angle = Math.random() * Math.PI * 2;
+            const distanceFactor = 0.6 + Math.random() * 0.5;
+            const distance = radiusAtHeight * distanceFactor;
+
+            const x = Math.cos(angle) * distance;
+            const z = Math.sin(angle) * distance;
+
+            // 小型枝叶
+            const shapeType = Math.random();
+            let geometry;
+
+            if (shapeType < 0.5) {
+                const size = 0.12 + Math.random() * 0.22;
+                geometry = new THREE.ConeGeometry(size, size * 1.3, 5);
+            } else if (shapeType < 0.8) {
+                const size = 0.1 + Math.random() * 0.18;
+                geometry = new THREE.SphereGeometry(size, 5, 5);
+            } else {
+                const size = 0.12 + Math.random() * 0.18;
+                geometry = new THREE.ConeGeometry(size * 1.2, size * 0.6, 5);
+            }
+
+            const material = new THREE.MeshStandardMaterial({
+                color: randomDarkGreen(),
+                roughness: 0.95,
+                metalness: 0.0
+            });
+
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.position.set(x, y, z);
+            mesh.rotation.x = Math.random() * Math.PI;
+            mesh.rotation.y = Math.random() * Math.PI * 2;
+            mesh.rotation.z = Math.random() * Math.PI;
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            treeGroup.add(mesh);
+        }
+
+        // 第三层：体积填充
+        const volumeFillCount = 50;
+
+        for (let i = 0; i < volumeFillCount; i++) {
+            const progress = Math.random();
+            const y = 0.8 + progress * treeHeight * 0.8;
+            const radiusAtHeight = bottomRadius * (1 - Math.pow(progress, 0.7));
+
+            const angle = Math.random() * Math.PI * 2;
+            const distance = Math.random() * radiusAtHeight * 0.55;
+            const x = Math.cos(angle) * distance;
+            const z = Math.sin(angle) * distance;
+
+            const radius = 0.25 + Math.random() * 0.4;
+            const height = 0.6 + Math.random() * 0.8;
+
+            const geometry = new THREE.ConeGeometry(radius, height, 6);
+            const material = new THREE.MeshStandardMaterial({
+                color: randomDarkGreen(),
+                roughness: 0.9,
+                metalness: 0.0
+            });
+
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.position.set(x, y, z);
+            mesh.rotation.x = (Math.random() - 0.5) * 0.35;
+            mesh.rotation.z = (Math.random() - 0.5) * 0.35;
+            mesh.rotation.y = Math.random() * Math.PI * 2;
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            treeGroup.add(mesh);
+        }
+
+        // 树干
+        const trunkHeight = 0.6;
+        const trunkGeometry = new THREE.CylinderGeometry(0.15, 0.2, trunkHeight, 12);
+        const trunkMaterial = new THREE.MeshStandardMaterial({
+            color: 0x3d2817,
+            roughness: 0.95,
+            metalness: 0.05
+        });
+        const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
+        trunk.position.y = trunkHeight / 2;
+        trunk.castShadow = true;
+        trunk.receiveShadow = true;
+        treeGroup.add(trunk);
+
+        treeGroup.position.y = 0;
+        scene.add(treeGroup);
+
+        // ========== 圣诞老人系统（卡通风格） ==========
+        function createSantaClaus(x, z, rotationY) {
+            const santaGroup = new THREE.Group();
+
+            // 材质 - 更鲜艳的红色，卡通风格
+            const redMaterial = new THREE.MeshStandardMaterial({
+                color: 0xdc143c,
+                roughness: 0.6,
+                metalness: 0.0
+            });
+
+            const skinMaterial = new THREE.MeshStandardMaterial({
+                color: 0xffdbac,
+                roughness: 0.7,
+                metalness: 0.0
+            });
+
+            const whiteMaterial = new THREE.MeshStandardMaterial({
+                color: 0xffffff,
+                roughness: 0.8,
+                metalness: 0.0
+            });
+
+            const blackMaterial = new THREE.MeshStandardMaterial({
+                color: 0x1a1a1a,
+                roughness: 0.7,
+                metalness: 0.1
+            });
+
+            const brownMaterial = new THREE.MeshStandardMaterial({
+                color: 0x8b4513,
+                roughness: 0.8,
+                metalness: 0.0
+            });
+
+            // 身体 - 使用球体使其更圆润
+            const bodyGeometry = new THREE.SphereGeometry(0.45, 16, 16);
+            const body = new THREE.Mesh(bodyGeometry, redMaterial);
+            body.position.y = 0.5;
+            body.scale.y = 1.2;
+            body.castShadow = true;
+            body.receiveShadow = true;
+            santaGroup.add(body);
+
+            // 身体白色装饰边（下摆）
+            const trimBottomGeometry = new THREE.TorusGeometry(0.45, 0.06, 8, 16);
+            const trimBottom = new THREE.Mesh(trimBottomGeometry, whiteMaterial);
+            trimBottom.position.y = 0.05;
+            trimBottom.rotation.x = Math.PI / 2;
+            trimBottom.castShadow = true;
+            santaGroup.add(trimBottom);
+
+            // 腰带 - 棕色
+            const beltGeometry = new THREE.CylinderGeometry(0.48, 0.48, 0.12, 12);
+            const belt = new THREE.Mesh(beltGeometry, brownMaterial);
+            belt.position.y = 0.4;
+            belt.castShadow = true;
+            santaGroup.add(belt);
+
+            // 腰带扣 - 金色
+            const buckleGeometry = new THREE.BoxGeometry(0.22, 0.1, 0.06);
+            const buckleMaterial = new THREE.MeshStandardMaterial({
+                color: 0xffd700,
+                metalness: 0.9,
+                roughness: 0.15
+            });
+            const buckle = new THREE.Mesh(buckleGeometry, buckleMaterial);
+            buckle.position.set(0, 0.4, 0.49);
+            santaGroup.add(buckle);
+
+            // 头部 - 更大的球体，更圆润
+            const headGeometry = new THREE.SphereGeometry(0.35, 16, 16);
+            const head = new THREE.Mesh(headGeometry, skinMaterial);
+            head.position.y = 1.15;
+            head.castShadow = true;
+            head.receiveShadow = true;
+            santaGroup.add(head);
+
+            // 脸颊 - 粉色
+            const cheekMaterial = new THREE.MeshStandardMaterial({
+                color: 0xffb6c1,
+                roughness: 0.8,
+                metalness: 0.0
+            });
+            const leftCheek = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), cheekMaterial);
+            leftCheek.position.set(-0.15, 1.0, 0.28);
+            santaGroup.add(leftCheek);
+            const rightCheek = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), cheekMaterial);
+            rightCheek.position.set(0.15, 1.0, 0.28);
+            santaGroup.add(rightCheek);
+
+            // 帽子主体 - 更圆润的圆锥
+            const hatGeometry = new THREE.ConeGeometry(0.38, 0.6, 12);
+            const hat = new THREE.Mesh(hatGeometry, redMaterial);
+            hat.position.y = 1.4;
+            hat.rotation.z = Math.PI;
+            hat.castShadow = true;
+            santaGroup.add(hat);
+
+            // 帽子白色毛边 - 更厚
+            const hatTrimGeometry = new THREE.TorusGeometry(0.38, 0.1, 8, 16);
+            const hatTrim = new THREE.Mesh(hatTrimGeometry, whiteMaterial);
+            hatTrim.position.y = 1.15;
+            hatTrim.rotation.x = Math.PI / 2;
+            hatTrim.castShadow = true;
+            santaGroup.add(hatTrim);
+
+            // 帽子顶球 - 白色毛球，更大
+            const hatBallGeometry = new THREE.SphereGeometry(0.12, 10, 10);
+            const hatBall = new THREE.Mesh(hatBallGeometry, whiteMaterial);
+            hatBall.position.y = 1.7;
+            santaGroup.add(hatBall);
+
+            // 大胡子 - 更蓬松，使用多个球体组合
+            const beardMain = new THREE.Mesh(new THREE.SphereGeometry(0.32, 12, 12), whiteMaterial);
+            beardMain.position.y = 0.9;
+            beardMain.scale.y = 0.7;
+            beardMain.castShadow = true;
+            santaGroup.add(beardMain);
+
+            // 胡子两侧
+            const beardLeft = new THREE.Mesh(new THREE.SphereGeometry(0.18, 10, 10), whiteMaterial);
+            beardLeft.position.set(-0.2, 0.85, 0.15);
+            beardLeft.scale.y = 0.6;
+            beardLeft.castShadow = true;
+            santaGroup.add(beardLeft);
+
+            const beardRight = new THREE.Mesh(new THREE.SphereGeometry(0.18, 10, 10), whiteMaterial);
+            beardRight.position.set(0.2, 0.85, 0.15);
+            beardRight.scale.y = 0.6;
+            beardRight.castShadow = true;
+            santaGroup.add(beardRight);
+
+            // 小胡子（上唇）
+            const mustacheGeometry = new THREE.SphereGeometry(0.2, 10, 10);
+            const mustache = new THREE.Mesh(mustacheGeometry, whiteMaterial);
+            mustache.position.set(0, 0.98, 0.22);
+            mustache.scale.set(1.2, 0.3, 0.6);
+            mustache.castShadow = true;
+            santaGroup.add(mustache);
+
+            // 左手臂 - 张开姿势，更圆润
+            const leftArmGroup = new THREE.Group();
+            const leftArmGeometry = new THREE.SphereGeometry(0.12, 10, 10);
+            const leftArm = new THREE.Mesh(leftArmGeometry, redMaterial);
+            leftArm.position.y = 0.2;
+            leftArm.scale.set(0.6, 0.8, 0.6);
+            leftArm.castShadow = true;
+            leftArmGroup.add(leftArm);
+
+            // 左手臂白色装饰
+            const leftArmTrim = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.04, 8, 12), whiteMaterial);
+            leftArmTrim.position.y = 0.1;
+            leftArmTrim.rotation.x = Math.PI / 2;
+            leftArmGroup.add(leftArmTrim);
+
+            // 左手 - 更大更圆
+            const leftHandGeometry = new THREE.SphereGeometry(0.12, 10, 10);
+            const leftHand = new THREE.Mesh(leftHandGeometry, skinMaterial);
+            leftHand.position.set(0.2, 0, 0);
+            leftHand.castShadow = true;
+            leftArmGroup.add(leftHand);
+
+            leftArmGroup.position.set(-0.6, 0.7, 0);
+            leftArmGroup.rotation.z = -Math.PI / 3;
+            leftArmGroup.rotation.y = Math.PI / 6;
+            santaGroup.add(leftArmGroup);
+
+            // 右手臂 - 张开姿势
+            const rightArmGroup = new THREE.Group();
+            const rightArmGeometry = new THREE.SphereGeometry(0.12, 10, 10);
+            const rightArm = new THREE.Mesh(rightArmGeometry, redMaterial);
+            rightArm.position.y = 0.2;
+            rightArm.scale.set(0.6, 0.8, 0.6);
+            rightArm.castShadow = true;
+            rightArmGroup.add(rightArm);
+
+            // 右手臂白色装饰
+            const rightArmTrim = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.04, 8, 12), whiteMaterial);
+            rightArmTrim.position.y = 0.1;
+            rightArmTrim.rotation.x = Math.PI / 2;
+            rightArmGroup.add(rightArmTrim);
+
+            // 右手 - 更大更圆
+            const rightHandGeometry = new THREE.SphereGeometry(0.12, 10, 10);
+            const rightHand = new THREE.Mesh(rightHandGeometry, skinMaterial);
+            rightHand.position.set(-0.2, 0, 0);
+            rightHand.castShadow = true;
+            rightArmGroup.add(rightHand);
+
+            rightArmGroup.position.set(0.6, 0.7, 0);
+            rightArmGroup.rotation.z = Math.PI / 3;
+            rightArmGroup.rotation.y = -Math.PI / 6;
+            santaGroup.add(rightArmGroup);
+
+            // 左腿 - 更圆润
+            const leftLegGeometry = new THREE.SphereGeometry(0.15, 10, 10);
+            const leftLeg = new THREE.Mesh(leftLegGeometry, redMaterial);
+            leftLeg.position.set(-0.18, -0.25, 0);
+            leftLeg.scale.set(0.7, 1.2, 0.7);
+            leftLeg.castShadow = true;
+            leftLeg.receiveShadow = true;
+            santaGroup.add(leftLeg);
+
+            // 左脚 - 黑色靴子，更大
+            const leftFootGeometry = new THREE.BoxGeometry(0.25, 0.12, 0.35);
+            const leftFoot = new THREE.Mesh(leftFootGeometry, blackMaterial);
+            leftFoot.position.set(-0.18, -0.65, 0.08);
+            leftFoot.castShadow = true;
+            leftFoot.receiveShadow = true;
+            santaGroup.add(leftFoot);
+
+            // 右腿 - 更圆润
+            const rightLegGeometry = new THREE.SphereGeometry(0.15, 10, 10);
+            const rightLeg = new THREE.Mesh(rightLegGeometry, redMaterial);
+            rightLeg.position.set(0.18, -0.25, 0);
+            rightLeg.scale.set(0.7, 1.2, 0.7);
+            rightLeg.castShadow = true;
+            rightLeg.receiveShadow = true;
+            santaGroup.add(rightLeg);
+
+            // 右脚 - 黑色靴子
+            const rightFootGeometry = new THREE.BoxGeometry(0.25, 0.12, 0.35);
+            const rightFoot = new THREE.Mesh(rightFootGeometry, blackMaterial);
+            rightFoot.position.set(0.18, -0.65, 0.08);
+            rightFoot.castShadow = true;
+            rightFoot.receiveShadow = true;
+            santaGroup.add(rightFoot);
+
+            // 眼睛 - 闭眼微笑（用弧线表示）
+            const eyeMaterial = new THREE.MeshStandardMaterial({ color: 0x000000 });
+            const leftEye = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), eyeMaterial);
+            leftEye.position.set(-0.12, 1.08, 0.3);
+            leftEye.scale.y = 0.3;
+            santaGroup.add(leftEye);
+
+            const rightEye = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), eyeMaterial);
+            rightEye.position.set(0.12, 1.08, 0.3);
+            rightEye.scale.y = 0.3;
+            santaGroup.add(rightEye);
+
+            // 鼻子 - 小圆鼻子
+            const noseGeometry = new THREE.SphereGeometry(0.06, 8, 8);
+            const noseMaterial = new THREE.MeshStandardMaterial({ color: 0xff6b6b });
+            const nose = new THREE.Mesh(noseGeometry, noseMaterial);
+            nose.position.set(0, 1.0, 0.32);
+            santaGroup.add(nose);
+
+            // 位置和旋转
+            santaGroup.position.set(x, 0, z);
+            santaGroup.rotation.y = rotationY;
+
+            // 返回组和手臂引用，方便动画控制
+            return {
+                group: santaGroup,
+                leftArm: leftArmGroup,
+                rightArm: rightArmGroup
+            };
+        }
+
+        // 创建一个圣诞老人（在树的一侧）
+        const santaData = createSantaClaus(-4.5, 2, Math.PI / 6);
+        const santa = santaData.group;
+        scene.add(santa);
+
+        // ========== 装饰品系统 ==========
+        const ornamentsGroup = new THREE.Group();
+        const lightsGroup = new THREE.Group();
+        const lightObjects = [];
+
+        // 材质
+        const redOrnamentMaterial = new THREE.MeshStandardMaterial({
+            color: 0xaa2222,
+            metalness: 0.3,
+            roughness: 0.25,
+            envMapIntensity: 0.8
+        });
+
+        const goldOrnamentMaterial = new THREE.MeshStandardMaterial({
+            color: 0xc9a040,
+            metalness: 0.85,
+            roughness: 0.2,
+            envMapIntensity: 1.0
+        });
+
+        const silverOrnamentMaterial = new THREE.MeshStandardMaterial({
+            color: 0xc0c0c0,
+            metalness: 0.9,
+            roughness: 0.15,
+            envMapIntensity: 1.0
+        });
+
+        const pineconeMaterial = new THREE.MeshStandardMaterial({
+            color: 0x4a3520,
+            roughness: 0.9,
+            metalness: 0.05
+        });
+
+        const lightMaterial = new THREE.MeshStandardMaterial({
+            color: 0xffdd88,
+            emissive: 0xffaa44,
+            emissiveIntensity: 2.5,
+            roughness: 0.3,
+            metalness: 0.1
+        });
+
+        // 创建装饰球
+        function createOrnament(material, position, size) {
+            const geometry = new THREE.SphereGeometry(size, 16, 16);
+            const ornament = new THREE.Mesh(geometry, material);
+            ornament.position.copy(position);
+            ornament.castShadow = true;
+            ornament.receiveShadow = true;
+            return ornament;
+        }
+
+        // 创建松果
+        function createPinecone(position) {
+            const group = new THREE.Group();
+            for (let i = 0; i < 5; i++) {
+                const geometry = new THREE.ConeGeometry(0.06 - i * 0.008, 0.12, 6);
+                const mesh = new THREE.Mesh(geometry, pineconeMaterial);
+                mesh.position.y = i * 0.03;
+                group.add(mesh);
+            }
+            group.position.copy(position);
+            group.rotation.x = (Math.random() - 0.5) * 0.5;
+            group.rotation.z = (Math.random() - 0.5) * 0.5;
+            group.castShadow = true;
+            return group;
+        }
+
+        // 创建灯串
+        function createLight(position) {
+            const geometry = new THREE.SphereGeometry(0.04, 10, 10);
+            const light = new THREE.Mesh(geometry, lightMaterial);
+            light.position.copy(position);
+            light.castShadow = false;
+
+            // 点光源
+            const pointLight = new THREE.PointLight(0xffcc66, 1.5, 2.5);
+            pointLight.position.copy(position);
+            pointLight.castShadow = false;
+            scene.add(pointLight);
+
+            return { mesh: light, pointLight: pointLight };
+        }
+
+        // 生成装饰品位置
+        const ornamentPositions = [];
+        const pineconePositions = [];
+
+        for (let layer = 0; layer < 12; layer++) {
+            const progress = layer / 11;
+            const y = 1 + progress * treeHeight * 0.75;
+            const radiusAtY = bottomRadius * (1 - progress * 0.6);
+
+            const ornamentCount = 2 + Math.floor(Math.random() * 3);
+            const pineconeCount = Math.random() > 0.6 ? 1 : 0;
+
+            for (let i = 0; i < ornamentCount; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const dist = (0.5 + Math.random() * 0.4) * radiusAtY;
+                const x = Math.cos(angle) * dist;
+                const z = Math.sin(angle) * dist;
+                ornamentPositions.push(new THREE.Vector3(x, y, z));
+            }
+
+            if (pineconeCount > 0) {
+                const angle = Math.random() * Math.PI * 2;
+                const dist = (0.55 + Math.random() * 0.35) * radiusAtY;
+                const x = Math.cos(angle) * dist;
+                const z = Math.sin(angle) * dist;
+                pineconePositions.push(new THREE.Vector3(x, y, z));
+            }
+        }
+
+        // 添加装饰球（红色+金色+银色）
+        ornamentPositions.forEach((pos, index) => {
+            const typeRand = Math.random();
+            let material;
+            if (typeRand < 0.4) {
+                material = redOrnamentMaterial;
+            } else if (typeRand < 0.75) {
+                material = goldOrnamentMaterial;
+            } else {
+                material = silverOrnamentMaterial;
+            }
+            const size = 0.1 + Math.random() * 0.06;
+            const ornament = createOrnament(material, pos, size);
+            ornamentsGroup.add(ornament);
+        });
+
+        // 添加松果
+        pineconePositions.forEach(pos => {
+            const pinecone = createPinecone(pos);
+            ornamentsGroup.add(pinecone);
+        });
+
+        // 灯串（密集螺旋分布）
+        const spiralTurns = 5;
+        const lightsPerTurn = 14;
+        const totalLights = spiralTurns * lightsPerTurn;
+
+        for (let i = 0; i < totalLights; i++) {
+            const progress = i / totalLights;
+            const angle = progress * Math.PI * 2 * spiralTurns;
+            const height = 0.8 + progress * treeHeight * 0.75;
+            const radius = 0.35 + (1 - progress) * bottomRadius * 0.5;
+
+            const x = Math.cos(angle) * radius;
+            const z = Math.sin(angle) * radius;
+            const y = height;
+
+            const lightObj = createLight(new THREE.Vector3(x, y, z));
+            lightsGroup.add(lightObj.mesh);
+            lightObjects.push(lightObj);
+        }
+
+        scene.add(ornamentsGroup);
+        scene.add(lightsGroup);
+
+        // 树顶五角星
+        function createStar() {
+            const group = new THREE.Group();
+            const starShape = new THREE.Shape();
+
+            const outerRadius = 0.35;
+            const innerRadius = 0.17;
+            const spikes = 5;
+
+            for (let i = 0; i < spikes * 2; i++) {
+                const radius = i % 2 === 0 ? outerRadius : innerRadius;
+                const angle = (i * Math.PI) / spikes - Math.PI / 2;
+                const x = Math.cos(angle) * radius;
+                const y = Math.sin(angle) * radius;
+
+                if (i === 0) {
+                    starShape.moveTo(x, y);
+                } else {
+                    starShape.lineTo(x, y);
+                }
+            }
+            starShape.closePath();
+
+            const geometry = new THREE.ExtrudeGeometry(starShape, {
+                depth: 0.08,
+                bevelEnabled: true,
+                bevelThickness: 0.015,
+                bevelSize: 0.015,
+                bevelSegments: 2
+            });
+
+            const material = new THREE.MeshStandardMaterial({
+                color: 0xd4a84b,
+                metalness: 0.9,
+                roughness: 0.15,
+                emissive: 0xaa8030,
+                emissiveIntensity: 0.4
+            });
+
+            const star = new THREE.Mesh(geometry, material);
+            star.rotation.x = -Math.PI / 2;
+            star.position.y = treeHeight + 0.45;
+            star.castShadow = true;
+            star.receiveShadow = true;
+
+            const starLight = new THREE.PointLight(0xffdd88, 2.5, 8);
+            starLight.position.set(0, treeHeight + 0.45, 0);
+            scene.add(starLight);
+
+            group.add(star);
+            return group;
+        }
+
+        const star = createStar();
+        scene.add(star);
+
+        // ========== 背景光斑效果 ==========
+        const bokehCount = 25;
+        for (let i = 0; i < bokehCount; i++) {
+            const size = 0.08 + Math.random() * 0.15;
+            const geometry = new THREE.SphereGeometry(size, 8, 8);
+            const material = new THREE.MeshBasicMaterial({
+                color: 0xffcc66,
+                transparent: true,
+                opacity: 0.2 + Math.random() * 0.3
+            });
+            const bokeh = new THREE.Mesh(geometry, material);
+            bokeh.position.set(
+                (Math.random() - 0.5) * 20,
+                Math.random() * 8,
+                -8 - Math.random() * 10
+            );
+            scene.add(bokeh);
+        }
+
+        // ========== 动画循环 ==========
+        let time = 0;
+
+        function animate() {
+            requestAnimationFrame(animate);
+            time += 0.01;
+
+            controls.update();
+
+            // 灯串闪烁
+            lightObjects.forEach((lightObj, index) => {
+                const phase = (time * 1.5 + index * 0.15) % (Math.PI * 2);
+                const intensity = 0.7 + Math.sin(phase) * 0.5;
+                lightObj.mesh.material.emissiveIntensity = 2.0 + intensity;
+                lightObj.pointLight.intensity = 1.2 + intensity * 0.8;
+            });
+
+            // 圣诞老人轻微摆动和手臂动画
+            if (santa && santaData) {
+                santa.rotation.y = Math.PI / 6 + Math.sin(time * 0.3) * 0.05;
+                santa.position.y = Math.sin(time * 0.4) * 0.02;
+
+                // 手臂轻微摆动（张开的手臂，模拟庆祝动作）
+                if (santaData.leftArm) {
+                    santaData.leftArm.rotation.z = -Math.PI / 3 + Math.sin(time * 0.5) * 0.08;
+                }
+                if (santaData.rightArm) {
+                    santaData.rightArm.rotation.z = Math.PI / 3 + Math.sin(time * 0.5) * 0.08;
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // 窗口大小调整
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // 启动动画
+        animate();
+    </script>
+</body>
+
+</html>
